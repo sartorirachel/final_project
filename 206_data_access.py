@@ -27,7 +27,7 @@ import sqlite3
 import random
 import requests
 
-# Begin filling in instructions....
+# Begin filling in instructions...
 
 #authentication information in twitter_info.py file, imported above
 consumer_key = twitter_info.consumer_key
