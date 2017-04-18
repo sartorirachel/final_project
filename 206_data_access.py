@@ -62,7 +62,7 @@ def twitter_search_with_caching(consumerKey, consumerSecret, accessToken, access
 		results = results_url
 		CACHE_DICTION["twitter_"+searchQuery] = results
 
-		jsonFile = open('206_final_project_cache.json', 'w')
+		jsonFile = open('twitter_finalproject_cache.json', 'w')
 		jsonFile.write(json.dumps(CACHE_DICTION))
 		jsonFile.close()
 
@@ -217,14 +217,14 @@ class TwitterCache(unittest.TestCase):
 		self.assertEqual(type(umich_tweets[18]),type({"hi":3}))
 class TweetsTable(unittest.TestCase):
 	def test_tweets_table(self):
-		conn = sqlite3.connect('final_project_tweets.db')
+		conn = sqlite3.connect('finalproject.db')
 		cur = conn.cursor()
 		cur.execute('SELECT * FROM Tweets');
 		result = cur.fetchall()
 		self.assertTrue(len(result[1])==6,"Testing that there are 6 columns in the Tweets table")
 		conn.close()
 	def test_tweets_table(self):
-		conn = sqlite3.connect('final_project_tweets.db')
+		conn = sqlite3.connect('finalproject.db')
 		cur = conn.cursor()
 		cur.execute('SELECT tweet_id FROM Tweets');
 		result = cur.fetchall()
@@ -232,7 +232,7 @@ class TweetsTable(unittest.TestCase):
 		conn.close()
 class UsersTable(unittest.TestCase):
 	def test_users_table(self):
-		conn = sqlite3.connect('final_project_tweets.db')
+		conn = sqlite3.connect('finalproject.db')
 		cur = conn.cursor()
 		cur.execute('SELECT * FROM Users');
 		result = cur.fetchall()
@@ -240,7 +240,7 @@ class UsersTable(unittest.TestCase):
 		conn.close()
 class MoviesTable(unittest.TestCase):
 	def test_movies_table(self):
-		conn = sqlite3.connect('final_project_tweets.db')
+		conn = sqlite3.connect('finalproject.db')
 		cur = conn.cursor()
 		cur.execute('SELECT * FROM Users');
 		result = cur.fetchall()
