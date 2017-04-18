@@ -29,8 +29,6 @@ import requests
 
 # Begin filling in instructions....
 
-# - At least 1 function which gets and caches data from 1 of your data sources, and an invocation of each of those functions to show that they work 
-
 #authentication information in twitter_info.py file, imported above
 consumer_key = twitter_info.consumer_key
 consumer_secret = twitter_info.consumer_secret
@@ -53,38 +51,113 @@ try:
 except:
 	CACHE_DICTION = {}
 
-#write function to get and cache data based on search term
+#write twitter search function to search for each of the titles of three movies
+#movie_title_twitter_data takes in a movie title and returns data about ten tweets that mention the movie title and caches data
 
-#write invocation of function
+def movie_title_twitter_data(movie_title):
+	unique_identifier = "twitter_{}".format(movie_title) 
 
-#write function called get_user_tweets to get and cache data about a Twitter user. should accept a specific Twitter user handle and return data that represents tweets from that user's timeline
-
-def get_user_tweets(user_handle):
-	unique_identifier = "twitter_{}".format(user_handle)
 	if unique_identifier in CACHE_DICTION:
-		public_tweets = CACHE_DICTION[unique_identifier]
+		twitter_results = CACHE_DICTION[unique_identifier]
 	else:
-		public_tweets = api.user_timeline(user_handle)
-		CACHE_DICTION[unique_identifier] = public_tweets
-		cache_file = open(CACHE_FNAME, 'w')
-		cache_file.write(json.dumps(CACHE_DICTION))
-		cache_file.close()
-	return public_tweets
+		twitter_results = api.statuses_lookup(movie_title)
 
-# Write an invocation to the function for the "umich" user timeline and save the result in a variable called umich_tweets:
+		CACHE_DICTION[unique_identifier] = twitter_results
+		
+		f = open(CACHE_FNAME,'w')
+		f.write(json.dumps(CACHE_DICTION)) 
+		f.close()
 
-umich_tweets = get_user_tweets('umich')
+	tweets = [] 
+	for tweet in twitter_results:
+		tweets.append(tweet)
+	return tweets[:10]
 
-# - Tests at the end of your file that accord with those instructions (will test that you completed those instructions correctly!)
-#^for this part, see tests under classTwitterCache below in tests area
+#write invocation of function movie_title_twitter_data
 
-# - Code that creates a database file and tables as your project plan explains, such that your program can be run over and over again without error and without duplicate rows in your tables.
+twitter_data = movie_title_twitter_data("Contact")
 
+#write function to access data about a Twitter user to get information about each of the Users in the "neighborhood" -- every user who posted any of the tweets retreived and every user who is mentioned in them
 
+# Write an invocation of function 
 
-# - At least enough code to load data into 1 of your database tables (this should accord with your instructions/tests)
+#write function to get and cache data from OMDB API with movie title search
 
+#define class Movie that accepts dictionary that represents movie, has 3 instance variables, has 2 methods besides constructor
 
+#optional: create class to handle Twitter data
+
+#pick 3 movie title search terms for OMDB and put those strings in list
+
+movie_title_list = ['Contact', 'The Martian', 'Interstellar']
+
+#make request to OMDB on each of the 3 search terms in movie_title_list using function to accumulate all dictionaries retrieved from doing this, each representing one movie, into a list
+
+#using above list of dictionaries, create list of instances of class Movie
+
+#create database file with 3 tables: Tweets, Users, Movies
+conn = sqlite3.connect('finalproject.db')
+cur = conn.cursor()
+
+#Tweets table with rows:
+	# Tweet text
+	# Tweet ID (primary key)
+	# The user who posted the tweet (represented by a reference to the users table)
+	# The movie search this tweet came from (represented by a reference to the movies table)
+	# Number favorites
+	# Number retweets
+
+statement = ('DROP TABLE IF EXISTS Tweets')
+cur.execute(statement)
+table_spec = 'CREATE TABLE IF NOT EXISTS '
+table_spec += 'Tweets (tweet_id STRING PRIMARY KEY, '
+table_spec += 'text TEXT, user_id STRING, movie_title TEXT, retweets INTEGER, num_favs INTEGER)'
+cur.execute(table_spec)
+
+#Users table with rows:
+	# User ID (primary key)
+	# User screen name
+	# Number of favorites that user has ever made
+
+statement = ('DROP TABLE IF EXISTS Users')
+cur.execute(statement)
+table_spec = 'CREATE TABLE IF NOT EXISTS '
+table_spec += 'Users (user_id STRING PRIMARY KEY, '
+table_spec += 'screen_name TEXT, num_likes INTEGER)'
+cur.execute(table_spec)
+
+#Movies table with rows:
+	# ID (primary key)
+	# Title of the movie
+	# Director of the movie 
+	# Number of languages the movie has
+	# IMDB rating of the movie
+	# The top billed (first in the list) actor in the movie
+
+statement = ('DROP TABLE IF EXISTS Movies')
+cur.execute(statement)
+table_spec = 'CREATE TABLE IF NOT EXISTS '
+table_spec += 'Movies (movie_id STRING PRIMARY KEY, '
+table_spec += 'movie_title TEXT, director TEXT, num_languages INTEGER, IMDB_rating REAL, top_billed TEXT)'
+cur.execute(table_spec)
+
+cur.close()
+
+#load data about all tweets gathered from timeline of each search into Tweets table
+for tweet in searchedTweets['statuses']:
+  query = searchedTweets['search_metadata']['query']
+  cur.execute('INSERT INTO Tweets (tweet_id, text, user_id, movie_title, num_favs, retweets) VALUES (?, ?, ?, ?, ?, ?)', (tweet['id_str'], tweet['text'], tweet['user']['id_str'], query, tweet['favorite_count'], tweet['retweet_count']))
+  conn.commit()
+
+#make a query to select all of the tweets (full rows of tweet information) that have been retweeted more than 25 times
+
+#make a JOIN query that accesses the user who posted the tweet from the Tweets table and the user screen name from the Users table
+
+#make a query to select all of the user screen names from the database and use a list comprehension to save a resulting list of strings in the variable screen_names
+
+#use a Counter in the collections library to find the most common word among all of the words (combinations of characters separated by whitespace) in the Tweet text in Tweets table
+
+#write data to text file "Contact, The Martian, and Interstellar Twitter Summary" in which I have each result of my data processing clearly written to the file on several different lines 
 
 # Put your tests here, with any edits you now need from when you turned them in with your project plan.
 
