@@ -51,7 +51,28 @@ try:
 except:
 	CACHE_DICTION = {}
 
-#write twitter search function to search for each of the titles of three movies
+#write twitter search function that caches data
+
+def twitter_search_with_caching(consumerKey, consumerSecret, accessToken, accessSecret, searchQuery):
+	results_url = api.search(q=searchQuery)
+
+	if searchQuery in CACHE_DICTION:
+		response_text = CACHE_DICTION["twitter_"+searchQuery]
+	else:
+		results = results_url
+		CACHE_DICTION["twitter_"+searchQuery] = results
+
+		jsonFile = open('206_final_project_cache.json', 'w')
+		jsonFile.write(json.dumps(CACHE_DICTION))
+		jsonFile.close()
+
+		response_text = CACHE_DICTION["twitter_"+searchQuery]
+	return response_text
+
+#invocation of function
+
+searchedTweets = twitter_search_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, "Contact")
+
 #movie_title_twitter_data takes in a movie title and returns data about ten tweets that mention the movie title and caches data
 
 def movie_title_twitter_data(movie_title):
@@ -79,7 +100,21 @@ twitter_data = movie_title_twitter_data("Contact")
 
 #write function to access data about a Twitter user to get information about each of the Users in the "neighborhood" -- every user who posted any of the tweets retreived and every user who is mentioned in them
 
+def get_user_tweets(user_handle):
+	unique_identifier = "twitter_{}".format(user_handle)
+	if unique_identifier in CACHE_DICTION:
+		public_tweets = CACHE_DICTION[unique_identifier]
+	else:
+		public_tweets = api.user_timeline(user_handle)
+		CACHE_DICTION[unique_identifier] = public_tweets
+		cache_file = open(CACHE_FNAME, 'w')
+		cache_file.write(json.dumps(CACHE_DICTION))
+		cache_file.close()
+	return public_tweets
+
 # Write an invocation of function 
+
+umich_tweets = get_user_tweets('umich')
 
 #write function to get and cache data from OMDB API with movie title search
 
@@ -141,13 +176,13 @@ table_spec += 'Movies (movie_id STRING PRIMARY KEY, '
 table_spec += 'movie_title TEXT, director TEXT, num_languages INTEGER, IMDB_rating REAL, top_billed TEXT)'
 cur.execute(table_spec)
 
-cur.close()
-
 #load data about all tweets gathered from timeline of each search into Tweets table
 for tweet in searchedTweets['statuses']:
   query = searchedTweets['search_metadata']['query']
   cur.execute('INSERT INTO Tweets (tweet_id, text, user_id, movie_title, num_favs, retweets) VALUES (?, ?, ?, ?, ?, ?)', (tweet['id_str'], tweet['text'], tweet['user']['id_str'], query, tweet['favorite_count'], tweet['retweet_count']))
   conn.commit()
+
+cur.close() 
 
 #make a query to select all of the tweets (full rows of tweet information) that have been retweeted more than 25 times
 
