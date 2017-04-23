@@ -101,6 +101,7 @@ CACHE_FNAME2 = 'omdb_finalproject_cache.json'
 try: 
 	cache_file2 = open(CACHE_FNAME2, 'r')
 	cache_contents2 = cache_file2.read()
+	cache_file2.close()
 	CACHE_DICTION2 = json.loads(cache_contents2)
 except:
 	CACHE_DICTION2 = {}
@@ -143,7 +144,7 @@ class Movie():
 		return self.actors.split(', ')[0]
 
 	def __str__(self):
-		return "Plot description: {}\n".format(self.plot)
+		return "Plot description: {}".format(self.plot)
 
 #optional: create class to handle Twitter data
 
@@ -294,7 +295,9 @@ class ClassMovie(unittest.TestCase):
 	def test_class_movie_method_first_actor(self):
 		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.first_actor(), 'Ryan Gosling')
-
+	def test_class_movie_method_str(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.__str__(), 'Plot description: Three little pigs run from wolf')
 
 if __name__ == "__main__":
 	unittest.main(verbosity=2)
