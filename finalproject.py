@@ -106,7 +106,7 @@ except:
 	CACHE_DICTION2 = {}
 
 #pick 3 movie title search terms for OMDB and put those strings in list
-movie_title_list = ['Contact', 'The Martian', 'Interstellar']
+movie_list = ['Contact', 'The Martian', 'Interstellar']
 
 #write function omdb_data that takes in movie title and returns all information about movie and caches data
 def omdb_data(movie_list):
@@ -125,7 +125,25 @@ def omdb_data(movie_list):
 			f.close()
 	return movie_info
 
+#write invocation of function omdb_data
+movie_data = omdb_data(movie_list)
+
 #define class Movie that accepts dictionary that represents movie, has 3 instance variables, has 2 methods besides constructor
+class Movie():
+	def __init__(self, movie_dict):
+		self.actors = movie_dict['Actors']
+		self.languages = movie_dict['Language']
+		self.plot = movie_dict['Plot']
+
+	def num_languages(self):
+		num = self.languages.split(', ')
+		return (len(num))
+
+	def first_actor(self):
+		return self.actors.split(', ')[0]
+
+	def __str__(self):
+		return "Plot description: {}\n".format(self.plot)
 
 #optional: create class to handle Twitter data
 
@@ -252,18 +270,31 @@ class MoviesTable(unittest.TestCase):
 		conn.close()
 
 class ClassMovie(unittest.TestCase):
-	def test_class_movie_instance_variables(self):
-		value = Movie({'Forrest Gump'})
-		self.assertEqual(value.movie_title, "Forrest Gump")
-	def test_class_movie_instance_variables_type_movie_title(self):
-		value = Movie({'Forrest Gump'})
-		self.assertEqual(type(value.movie_title), type("movie title"))
-	def test_class_movie_instance_variables_type_movie_director(self):
-		value = Movie({'Forrest Gump'})
-		self.assertEqual(type(value.movie_director), type("move_director"))
-	def test_class_movie_instance_variables_type_IMDB_rating(self):
-		value = Movie({'Forrest Gump'})
-		self.assertEqual(type(value.IMDB_rating), type(1))
+	def test_class_movie_instance_var_actors(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.actors, 'Ryan Gosling, Ellen Degeneres')
+	def test_class_movie_instance_var_type_actors(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(type(value.actors), type('Ryan Gosling, Ellen Degeneres'))
+	def test_class_movie_instance_var_languages(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.languages, 'English, Spanish')
+	def test_class_movie_instance_var_type_languages(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(type(value.languages), type('English, Spanish'))
+	def test_class_movie_instance_var_plot(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.plot, 'Three little pigs run from wolf')
+	def test_class_movie_instance_var_type_plot(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(type(value.plot), type('Three little pigs run from wolf'))
+	def test_class_movie_method_num_languages(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.num_languages(), 2)
+	def test_class_movie_method_first_actor(self):
+		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		self.assertEqual(value.first_actor(), 'Ryan Gosling')
+
 
 if __name__ == "__main__":
 	unittest.main(verbosity=2)
