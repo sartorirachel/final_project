@@ -35,25 +35,163 @@ try:
 except:
 	CACHE_DICTION = {}
 
-#define twitter_search_with_caching that caches data
+#define twitter_search_with_caching that caches data based on a search term
 def twitter_search_with_caching(consumerKey, consumerSecret, accessToken, accessSecret, searchQuery):
 	results_url = api.search(q=searchQuery)
-
 	if searchQuery in CACHE_DICTION:
 		response_text = CACHE_DICTION["twitter_"+searchQuery]
 	else:
 		results = results_url
 		CACHE_DICTION["twitter_"+searchQuery] = results
-
-		jsonFile = open('twitter_finalproject_cache.json', 'w')
-		jsonFile.write(json.dumps(CACHE_DICTION))
-		jsonFile.close()
-
+		cache_file = open(CACHE_FNAME, 'w')
+		cache_file.write(json.dumps(CACHE_DICTION))
+		cache_file.close()
 		response_text = CACHE_DICTION["twitter_"+searchQuery]
 	return response_text
 
 #invocation of function for twitter_search_with_caching
 searchedTweets = twitter_search_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, "Grease")
+
+#define twitter_user_with_caching that caches data about a Twitter user
+def twitter_user_with_caching(consumerKey, consumerSecret, accessToken, accessSecret, handle):
+	results_url = api.user_timeline(id=handle)
+	if handle in CACHE_DICTION:
+		response_text = CACHE_DICTION[handle]
+	else:
+		results = results_url
+		CACHE_DICTION[handle] = results
+		cache_file = open(CACHE_FNAME, 'w')
+		cache_file.write(json.dumps(CACHE_DICTION))
+		cache_file.close()
+		response_text = CACHE_DICTION[handle]
+	return response_text
+
+#invocation of function twitter_user_with_caching
+userTweets = twitter_user_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, "umich")
+
+#cache file for OMDB data
+CACHE_FNAME2 = 'omdb_finalproject_cache.json'
+
+#OMDB caching process
+try: 
+	cache_file2 = open(CACHE_FNAME2, 'r')
+	cache_contents2 = cache_file2.read()
+	cache_file2.close()
+	CACHE_DICTION2 = json.loads(cache_contents2)
+except:
+	CACHE_DICTION2 = {}
+
+#write function omdb_data that takes in movie title and returns all information about movie and caches data
+def omdb_data(movie_title):
+	results_url = 'http://www.omdbapi.com/?'
+	parameters = {'t': movie_title}
+	resp = requests.get(url = results_url, params = parameters)
+	response = json.loads(resp.text)
+	if ('imdb_'+movie_title) in CACHE_DICTION2:
+		response_text = CACHE_DICTION2['imdb_'+movie_title]
+	else:
+		omdb_results = response
+		CACHE_DICTION2['imdb_'+movie_title] = omdb_results
+		cache_file2 = open(CACHE_FNAME2, 'w')
+		cache_file2.write(json.dumps(CACHE_DICTION2))
+		cache_file2.close()
+		response_text = CACHE_DICTION2['imdb_'+movie_title]
+	return response_text
+
+#write invocation of function omdb_data
+movie_data = omdb_data('Toy Story')
+
+#define class Movie that accepts dictionary that represents movie, has 6 instance variables, has 3 methods besides constructor
+class Movie():
+	def __init__(self, movie_dict={}):
+		#instance variables
+		self.title = movie_dict['Title']
+		self.director = movie_dict['Director']
+		self.rating = movie_dict['imdbRating']
+		self.actors = movie_dict['Actors']
+		self.languages = movie_dict['Language']
+		self.plot = movie_dict['Plot']
+
+	#num_languages finds the number of languages of the searched movie 
+	def num_languages(self):
+		num = self.languages.split(', ')
+		return (len(num))
+
+	#first_actor finds the name of the first actor listed for the searched movie
+	def first_actor(self):
+		return self.actors.split(', ')[0]
+
+	#list_of_actors returns a list of all actors in searched movie
+	def list_of_actors(self):
+		return self.actors.split(', ')
+
+	#returns human readable string of plot of searched movie beginning with "Plot description: "
+	def __str__(self):
+		return "Plot description: {}".format(self.plot)
+
+#pick 3 movie title search terms for OMDB and put those strings in list
+movie_list = ['Contact', 'The Martian', 'Interstellar']
+
+#make request to OMDB using omdb_data function on each of 3 search terms in movie_list and accumulate all dictionaries you get, each representing one movie, into list
+movie_data_lst = [omdb_data(movie) for movie in movie_list]
+
+#use movie_data_lst to create list of instances of class Movie
+movie_instances = [Movie(movie) for movie in movie_data_lst]
+
+##create Tweet class to make it easier to get data and keep organized. Define mentioned_users method to help find user neighborhood
+class Tweet():
+	def __init__(self, tweet_dict = {}):
+		self.user_id = tweet_dict['user']['id_str']
+		self.text = tweet_dict['text']
+		self.tweet_id = tweet_dict['id_str']
+		self.user = tweet_dict['user']['screen_name']
+
+	#use regex to find all mentioned users
+	def mentioned_users(self):
+		mentioned_users = re.findall('\B\@([\w\-]+)', self.text)
+		if len(mentioned_users) < (1):
+			return "no mentioned users"
+		else:
+			return mentioned_users
+
+#use twitter_search_with_caching to search for each of the titles of three movies in movie_instances
+movie_title_search = []
+for movie in movie_instances:
+	movie_title_search = twitter_search_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, movie.title)
+
+##save the above dictionary as list of instances of class Tweet
+tweet_instance_lst = []
+for tweet in movie_title_search['statuses']:
+	one_tweet = Tweet(tweet)#<<<<<<Tweet class
+	tweet_instance_lst.append(one_tweet)
+
+##create list of information about user who psoted tweet you retrieved and every user who is mentioned in them
+users_info = []
+for tweet in tweet_instance_lst:
+	user = tweet.user #<<<<<<<User class
+	users_info.append(user)
+	users_mentioned = tweet.mentioned_users() #<<<<<<<<
+	if users_mentioned != 'no mentioned users':
+		for user in users_mentioned:
+			users_info.append(user)
+
+##create TwitterUser class to make it easier to get data and keep organized
+class TwitterUser():
+	def __init__(self, user_dict = {}):
+		self.user_id = user_dict['user']['id_str']
+		self.screen_name = user_dict['user']['screen_name']
+		self.description = user_dict['user']['description']
+		self.num_followers = user_dict['user']['followers_count']
+
+##create list of instances of each user
+user_instance_lst = []
+for user in users_info:
+	dict = twitter_user_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, user)
+	one_user = TwitterUser(dict[0]) #<<<<<<
+	user_instance_lst.append(one_user)
+
+
+#-------------------------------------------------------------------------
 
 #movie_title_twitter_data takes in a movie title and returns data about ten tweets that mention the movie title and caches data
 def movie_title_twitter_data(movie_title):
@@ -94,69 +232,11 @@ def get_user_tweets(user_handle):
 # Write an invocation of function get_user_tweets
 umich_tweets = get_user_tweets('umich')
 
-#cache file for OMDB data
-CACHE_FNAME2 = 'omdb_finalproject_cache.json'
-
-#OMDB caching process
-try: 
-	cache_file2 = open(CACHE_FNAME2, 'r')
-	cache_contents2 = cache_file2.read()
-	cache_file2.close()
-	CACHE_DICTION2 = json.loads(cache_contents2)
-except:
-	CACHE_DICTION2 = {}
-
-#pick 3 movie title search terms for OMDB and put those strings in list
-movie_list = ['Contact', 'The Martian', 'Interstellar']
-
-#write function omdb_data that takes in movie title and returns all information about movie and caches data
-def omdb_data(movie_list):
-	movie_info = []
-	for movie in movie_list:
-		unique_identifier = 'omdb_{}'.format(movie)
-		if unique_identifier in CACHE_DICTION2:
-			movie_info.append(CACHE_DICTION2[unique_identifier])
-		else:
-			r = requests.get("http://www.omdbapi.com/?t="+movie)
-			omdb_results = r.text
-			movie_info.append(omdb_results)
-			CACHE_DICTION2[unique_identifier] = omdb_results
-			f = open(CACHE_FNAME2, 'w')
-			f.write(json.dumps(CACHE_DICTION2))
-			f.close()
-	return movie_info
-
-#write invocation of function omdb_data
-movie_data = omdb_data(movie_list)
-
-#define class Movie that accepts dictionary that represents movie, has 3 instance variables, has 2 methods besides constructor
-class Movie():
-	def __init__(self, movie_dict):
-		self.actors = movie_dict['Actors']
-		self.languages = movie_dict['Language']
-		self.plot = movie_dict['Plot']
-
-	def num_languages(self):
-		num = self.languages.split(', ')
-		return (len(num))
-
-	def first_actor(self):
-		return self.actors.split(', ')[0]
-
-	def __str__(self):
-		return "Plot description: {}".format(self.plot)
-
-#optional: create class to handle Twitter data
-
-#make request to OMDB on each of the 3 search terms in movie_title_list using function to accumulate all dictionaries retrieved from doing this, each representing one movie, into a list
-
-#using above list of dictionaries, create list of instances of class Movie
-
 #create database file with 3 tables: Tweets, Users, Movies
 conn = sqlite3.connect('finalproject.db')
 cur = conn.cursor()
 
-#Tweets table with rows:
+#create Tweets table with rows:
 	# Tweet text
 	# Tweet ID (primary key)
 	# The user who posted the tweet (represented by a reference to the users table)
@@ -171,7 +251,7 @@ table_spec += 'Tweets (tweet_id STRING PRIMARY KEY, '
 table_spec += 'text TEXT, user_id STRING, movie_title TEXT, retweets INTEGER, num_favs INTEGER)'
 cur.execute(table_spec)
 
-#Users table with rows:
+#create Users table with rows:
 	# User ID (primary key)
 	# User screen name
 	# Number of favorites that user has ever made
@@ -183,7 +263,7 @@ table_spec += 'Users (user_id STRING PRIMARY KEY, '
 table_spec += 'screen_name TEXT, num_likes INTEGER)'
 cur.execute(table_spec)
 
-#Movies table with rows:
+#create Movies table with rows:
 	# ID (primary key)
 	# Title of the movie
 	# Director of the movie 
@@ -216,8 +296,7 @@ cur.close()
 
 #write data to text file "Contact, The Martian, and Interstellar Twitter Summary" in which I have each result of my data processing clearly written to the file on several different lines 
 
-# Put your tests here, with any edits you now need from when you turned them in with your project plan.
-
+# Put your tests here
 class TwitterCache(unittest.TestCase):
 	def test_twitter_cache(self):
 		fpt = open("twitter_finalproject_cache.json","r")
@@ -272,31 +351,31 @@ class MoviesTable(unittest.TestCase):
 
 class ClassMovie(unittest.TestCase):
 	def test_class_movie_instance_var_actors(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.actors, 'Ryan Gosling, Ellen Degeneres')
 	def test_class_movie_instance_var_type_actors(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(type(value.actors), type('Ryan Gosling, Ellen Degeneres'))
 	def test_class_movie_instance_var_languages(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.languages, 'English, Spanish')
 	def test_class_movie_instance_var_type_languages(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(type(value.languages), type('English, Spanish'))
 	def test_class_movie_instance_var_plot(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.plot, 'Three little pigs run from wolf')
 	def test_class_movie_instance_var_type_plot(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(type(value.plot), type('Three little pigs run from wolf'))
 	def test_class_movie_method_num_languages(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.num_languages(), 2)
 	def test_class_movie_method_first_actor(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.first_actor(), 'Ryan Gosling')
 	def test_class_movie_method_str(self):
-		value = Movie({'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
 		self.assertEqual(value.__str__(), 'Plot description: Three little pigs run from wolf')
 
 if __name__ == "__main__":
