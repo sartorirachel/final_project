@@ -162,15 +162,15 @@ for movie in movie_instances:
 ##save the above dictionary as list of instances of class Tweet
 tweet_instance_lst = []
 for tweet in movie_title_search['statuses']:
-	one_tweet = Tweet(tweet)#<<<<<<Tweet class
+	one_tweet = Tweet(tweet)
 	tweet_instance_lst.append(one_tweet)
 
 ##create list of information about user who psoted tweet you retrieved and every user who is mentioned in them
 users_info = []
 for tweet in tweet_instance_lst:
-	user = tweet.user #<<<<<<<User class
+	user = tweet.user
 	users_info.append(user)
-	users_mentioned = tweet.mentioned_users() #<<<<<<<<
+	users_mentioned = tweet.mentioned_users()
 	if users_mentioned != 'no mentioned users':
 		for user in users_mentioned:
 			users_info.append(user)
@@ -187,7 +187,7 @@ class TwitterUser():
 user_instance_lst = []
 for user in users_info:
 	dict = twitter_user_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, user)
-	one_user = TwitterUser(dict[0]) #<<<<<<
+	one_user = TwitterUser(dict[0])
 	user_instance_lst.append(one_user)
 
 
