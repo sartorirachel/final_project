@@ -105,6 +105,7 @@ movie_data = omdb_data('Toy Story')
 class Movie():
 	def __init__(self, movie_dict={}):
 		#instance variables
+		self.ID = movie_dict['imdbID']
 		self.title = movie_dict['Title']
 		self.director = movie_dict['Director']
 		self.rating = movie_dict['imdbRating']
@@ -145,6 +146,8 @@ class Tweet():
 		self.text = tweet_dict['text']
 		self.tweet_id = tweet_dict['id_str']
 		self.user = tweet_dict['user']['screen_name']
+		self.num_favs = tweet_dict['favorite_count']
+		self.num_retweets = tweet_dict['retweet_count']
 
 	#use regex to find all mentioned users
 	def mentioned_users(self):
@@ -154,10 +157,21 @@ class Tweet():
 		else:
 			return mentioned_users
 
+	#create movie_names() to find movie title of searched movie for Tweets Table later
+	def movie_names(self):
+		if "Contact" in self.text:
+			return "Contact"
+		if "The Martian" in self.text:
+			return "The Martian"
+		if "Interstellar" in self.text:
+			return "Interstellar"
+
 #use twitter_search_with_caching to search for each of the titles of three movies in movie_instances
 movie_title_search = []
+movie_title_search_lst = []
 for movie in movie_instances:
 	movie_title_search = twitter_search_with_caching(consumer_key, consumer_secret, access_token, access_token_secret, movie.title)
+	movie_title_search_lst.append(movie_title_search)
 
 ##save the above dictionary as list of instances of class Tweet
 tweet_instance_lst = []
@@ -180,8 +194,7 @@ class TwitterUser():
 	def __init__(self, user_dict = {}):
 		self.user_id = user_dict['user']['id_str']
 		self.screen_name = user_dict['user']['screen_name']
-		self.description = user_dict['user']['description']
-		self.num_followers = user_dict['user']['followers_count']
+		self.num_likes = user_dict['user']['favourites_count']
 
 ##create list of instances of each user
 user_instance_lst = []
@@ -190,49 +203,7 @@ for user in users_info:
 	one_user = TwitterUser(dict[0])
 	user_instance_lst.append(one_user)
 
-
-#-------------------------------------------------------------------------
-
-#movie_title_twitter_data takes in a movie title and returns data about ten tweets that mention the movie title and caches data
-def movie_title_twitter_data(movie_title):
-	unique_identifier = "twitter_{}".format(movie_title) 
-
-	if unique_identifier in CACHE_DICTION:
-		twitter_results = CACHE_DICTION[unique_identifier]
-	else:
-		twitter_results = api.statuses_lookup(movie_title)
-
-		CACHE_DICTION[unique_identifier] = twitter_results
-		
-		f = open(CACHE_FNAME,'w')
-		f.write(json.dumps(CACHE_DICTION)) 
-		f.close()
-
-	tweets = [] 
-	for tweet in twitter_results:
-		tweets.append(tweet)
-	return tweets[:10]
-
-#write invocation of function movie_title_twitter_data
-twitter_data = movie_title_twitter_data("Let's Be Cops")
-
-#write function get_user_tweets to access data about a Twitter user to get information about each of the Users in the "neighborhood" -- every user who posted any of the tweets retreived and every user who is mentioned in them
-def get_user_tweets(user_handle):
-	unique_identifier = "twitter_{}".format(user_handle)
-	if unique_identifier in CACHE_DICTION:
-		public_tweets = CACHE_DICTION[unique_identifier]
-	else:
-		public_tweets = api.user_timeline(user_handle)
-		CACHE_DICTION[unique_identifier] = public_tweets
-		cache_file = open(CACHE_FNAME, 'w')
-		cache_file.write(json.dumps(CACHE_DICTION))
-		cache_file.close()
-	return public_tweets
-
-# Write an invocation of function get_user_tweets
-umich_tweets = get_user_tweets('umich')
-
-#create database file with 3 tables: Tweets, Users, Movies
+#create database file finalproject.db with 3 tables: Tweets, Users, Movies
 conn = sqlite3.connect('finalproject.db')
 cur = conn.cursor()
 
@@ -248,7 +219,7 @@ statement = ('DROP TABLE IF EXISTS Tweets')
 cur.execute(statement)
 table_spec = 'CREATE TABLE IF NOT EXISTS '
 table_spec += 'Tweets (tweet_id STRING PRIMARY KEY, '
-table_spec += 'text TEXT, user_id STRING, movie_title TEXT, retweets INTEGER, num_favs INTEGER)'
+table_spec += 'text TEXT, user_id STRING, movie_title TEXT, num_favs INTEGER, retweets INTEGER)'
 cur.execute(table_spec)
 
 #create Users table with rows:
@@ -278,13 +249,48 @@ table_spec += 'Movies (movie_id STRING PRIMARY KEY, '
 table_spec += 'movie_title TEXT, director TEXT, num_languages INTEGER, IMDB_rating REAL, top_billed TEXT)'
 cur.execute(table_spec)
 
-#load data about all tweets gathered from timeline of each search into Tweets table
-for tweet in searchedTweets['statuses']:
-  query = searchedTweets['search_metadata']['query']
-  cur.execute('INSERT INTO Tweets (tweet_id, text, user_id, movie_title, num_favs, retweets) VALUES (?, ?, ?, ?, ?, ?)', (tweet['id_str'], tweet['text'], tweet['user']['id_str'], query, tweet['favorite_count'], tweet['retweet_count']))
-  conn.commit()
+#load data into databases
 
-cur.close() 
+	##load data in Tweets table
+tweet_id_dict = {}
+tweet_table_lst = []
+for tweet in tweet_instance_lst:
+	data_tuple = (tweet.text, tweet.tweet_id, tweet.user_id, tweet.movie_names(), tweet.num_favs, tweet.num_retweets)
+	if tweet.tweet_id not in tweet_id_dict:
+		tweet_id_dict[tweet.tweet_id] = '1'
+		tweet_table_lst.append(data_tuple)
+statement = 'INSERT INTO Tweets VALUES (?,?,?,?,?,?)'
+for x in tweet_table_lst:
+	cur.execute(statement, x)
+	conn.commit()
+
+	##load all of users that are tweeting about searched movie into Users table
+unique_user_ids = []
+user_table_lst = []
+for user in user_instance_lst:
+	id_num = user.user_id
+	data_tuple = (user.user_id, user.screen_name, user.num_likes)
+	if id_num not in unique_user_ids:
+		unique_user_ids.append(id_num)
+		user_table_lst.append(data_tuple)
+statement = 'INSERT INTO Users VALUES (?,?,?)'
+for x in user_table_lst:
+	cur.execute(statement, x)
+conn.commit()
+
+	##load data into Movies table
+movie_table_lst = []
+for movie in movie_instances:
+	data_tuple = (movie.ID, movie.title, movie.director, movie.num_languages(), movie.rating, movie.first_actor())
+	movie_table_lst.append(data_tuple)
+statement = 'INSERT INTO Movies VALUES (?,?,?,?,?,?)'
+for x in movie_table_lst:
+	cur.execute(statement, x)
+conn.commit()
+
+conn.close() 
+
+#-------------------------------------------------------------------------
 
 #make a query to select all of the tweets (full rows of tweet information) that have been retweeted more than 25 times
 
@@ -309,13 +315,6 @@ class TwitterCache(unittest.TestCase):
 	def test_umich_caching(self):
 		fstr = open("twitter_finalproject_cache.json","r").read()
 		self.assertTrue("umich" in fstr)
-	def test_get_user_tweets(self):
-		res = get_user_tweets("umsi")
-		self.assertEqual(type(res),type(["hi",3]))
-	def test_umich_tweets(self):
-		self.assertEqual(type(umich_tweets),type([]))
-	def test_umich_tweets2(self):
-		self.assertEqual(type(umich_tweets[18]),type({"hi":3}))
 
 class TweetsTable(unittest.TestCase):
 	def test_tweets_table(self):
@@ -338,45 +337,45 @@ class UsersTable(unittest.TestCase):
 		cur = conn.cursor()
 		cur.execute('SELECT * FROM Users');
 		result = cur.fetchall()
-		self.assertTrue(len(result[1])==3,"Testing that there are 3 columns in the Tweets table")
+		self.assertTrue(len(result[1])==3,"Testing that there are 3 columns in the Users table")
 		conn.close()
 class MoviesTable(unittest.TestCase):
 	def test_movies_table(self):
 		conn = sqlite3.connect('finalproject.db')
 		cur = conn.cursor()
-		cur.execute('SELECT * FROM Users');
+		cur.execute('SELECT * FROM Movies');
 		result = cur.fetchall()
-		self.assertTrue(len(result[1])==6,"Testing that there are 6 columns in the Tweets table")
+		self.assertTrue(len(result[1])==6,"Testing that there are 6 columns in the Movies table")
 		conn.close()
 
-class ClassMovie(unittest.TestCase):
-	def test_class_movie_instance_var_actors(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.actors, 'Ryan Gosling, Ellen Degeneres')
-	def test_class_movie_instance_var_type_actors(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(type(value.actors), type('Ryan Gosling, Ellen Degeneres'))
-	def test_class_movie_instance_var_languages(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.languages, 'English, Spanish')
-	def test_class_movie_instance_var_type_languages(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(type(value.languages), type('English, Spanish'))
-	def test_class_movie_instance_var_plot(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.plot, 'Three little pigs run from wolf')
-	def test_class_movie_instance_var_type_plot(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(type(value.plot), type('Three little pigs run from wolf'))
-	def test_class_movie_method_num_languages(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.num_languages(), 2)
-	def test_class_movie_method_first_actor(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.first_actor(), 'Ryan Gosling')
-	def test_class_movie_method_str(self):
-		value = Movie({'Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
-		self.assertEqual(value.__str__(), 'Plot description: Three little pigs run from wolf')
+# class ClassMovie(unittest.TestCase):
+# 	def test_class_movie_instance_var_actors(self):
+# 		value = Movie({'imdbID':'a1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.actors, 'Ryan Gosling, Ellen Degeneres')
+# 	def test_class_movie_instance_var_type_actors(self):
+# 		value = Movie({'imdbID':'b1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(type(value.actors), type('Ryan Gosling, Ellen Degeneres'))
+# 	def test_class_movie_instance_var_languages(self):
+# 		value = Movie({'imdbID':'c1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.languages, 'English, Spanish')
+# 	def test_class_movie_instance_var_type_languages(self):
+# 		value = Movie({'imdbID':'d1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(type(value.languages), type('English, Spanish'))
+# 	def test_class_movie_instance_var_plot(self):
+# 		value = Movie({'imdbID':'e1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.plot, 'Three little pigs run from wolf')
+# 	def test_class_movie_instance_var_type_plot(self):
+# 		value = Movie({'imdbID':'f1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(type(value.plot), type('Three little pigs run from wolf'))
+# 	def test_class_movie_method_num_languages(self):
+# 		value = Movie({'imdbID':'g1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.num_languages(), 2)
+# 	def test_class_movie_method_first_actor(self):
+# 		value = Movie({'imdbID':'h1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.first_actor(), 'Ryan Gosling')
+# 	def test_class_movie_method_str(self):
+# 		value = Movie({'imdbID':'i1234','Title':'Toy Story','Director':'Rachel','imdbRating':4,'Actors':'Ryan Gosling, Ellen Degeneres', 'Language':'English, Spanish','Plot':'Three little pigs run from wolf'})
+# 		self.assertEqual(value.__str__(), 'Plot description: Three little pigs run from wolf')
 
 if __name__ == "__main__":
 	unittest.main(verbosity=2)
